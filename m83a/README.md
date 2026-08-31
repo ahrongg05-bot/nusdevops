@@ -39,3 +39,8 @@ then run npx playwright test
 
 then run npx playwright test --headed
 [This Playwright UI showing successful checkout](image-1.png)
+
+
+
+https://cs4218.github.io/user-guide/contents/topic1b.html
+
