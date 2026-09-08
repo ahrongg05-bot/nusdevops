@@ -1,0 +1,506 @@
+#m9
+
+
+
+-----------------------------------------------------------------------------------------------
+#m9v4
+docker fundamentals: images vs container
+docker images
+- bluepirnts for app
+- define app setup (code, libm runtime, env )
+- stay enchanged: poratble, shareable, versionable
+it basically does nth until run
+
+docker containers
+- run as instances of images
+- provides an isolated app env
+
+diff think of an image as the mould of the car AND container as one car produced from mould
+another examaple is like downloading a music album - image. everytime u listen is starting a new container
+the song is always the same, but each listening session is different (when start,stop,repeat)
+
+DOCKER COMMANDS
+these commands work on any machine with docker installed
+- docker images 
+list all images on sys,
+show repo, tag , iamge ID and creation time and size
+stay organized with images available locally
+
+- docker run <image>
+starts an app from image
+
+- docker run hello-world 
+check whether image exists locally or pulls it from docker hub
+creates a container and runs the main process
+
+Can pass command , map ports and set names
+
+
+- docker run -d -p 8080:80 nginx
+-d runs the container in detached mode
+port 80 in the container maps to port 8080 on your machine
+access the app at localhost 8080
+
+- docker ps
+view running containers
+
+- docker ps -a 
+view recently stopped container
+
+-docker stop
+docker stop <container_id>
+
+- docker kill <container_id>
+force stop a dcontainer
+
+
+conclusion
+images give consistency
+container bring isolation and portability
+
+
+-----------------------------------------------------------------------------------------------
+#m9v5 creating docker images with dockerfile
+
+what is a dockerfile a? a plain text file with build instruction
+describe how to setup an app inside a container
+each instruction creates a new image layer, enabling caching and efficiency
+
+think as dockerfile as a recipe for software laying out every ingredient and step needed to bake final product
+
+example:  dockerfile python flask web app
+
+GFROM python:3.10-slim      set the base image. start with base. this could be ubuntu, node.js or in .py
+WORKDIR /app                set the working directory. where all future commands will run
+COPY . / app                  copies project files
+RUN pip install --no-cache-dir -r requirements.txt    install app dependencies specified in text file
+EXPOSE 5000                 the app will use port 5000
+CMD ["python", "ap.py"]     tells docker what command to run when launching the container
+
+once written dockerfile, build image using docker build command
+
+docker build -t my-flask-app .
+- t : like a tag / assign a recognisable image name
+.   : use . to build from current directory
+docker processes each dockerfile instruction, creating a separate layer for each step
+docker reuses cached layers if unchange, speeding up builds
+
+
+WHEN SUCCEEED - will see listed in docker images
+
+RUNNIGN THE BUILT IMAGE
+docker run -p 5000:5000 my-flask-app
+
+BEST PRACTICES FOR DOCKER IMAGES
+- start with minimal base images 
+e.g python: slim.       node: alpine
+- leverage build cache by ordering stable instructions before frequently changing ones
+- use a .dockerignore file to exclude logs, documentation and .git folders
+- combine RUN instructions to reduce layers and keep images tidy
+e.g RUN apt-get update && apt-get install -y build-essential && rm -rf /var/lib/apt/lists/*
+- avoid secrets, use env var insteads
+- set working and user directories explicitly to improve security
+
+-----------------------------------------------------------------------------------------------
+#m9v6 managing containers and data
+
+MANAGING CONTAINER LIFECYCLE
+--name my-nginx    (assigns an easy to rmb name)
+-d (runs the container in detached(background) mode)
+-p 8080:80 (maps container port 80 to host port 8080)
+nginx (tells docker to use the official nginx image)
+docker ps ( checks if the container is running and list active containers)
+
+STOP AND RESTARTING CONTAINERS
+docker stop my-nginx (stop a running container)
+docker start my-nginx (start it again)
+docker restart my-nginx (restart in 1 step)
+
+DOCKER VOLUME
+what is it ? provides persisitent storage managed by docker, independent of container
+acts likes an external drive for storing and reading data
+docker volume create mydata (creates a volume with ....)
+docker run -d --name my-redis -v mydata:/data redies (start a container and mount vol)
+v mydata:/data (attaches to the /data directory inside container where REdis is stored)
+remote and recreate containers freely, data stored in volumes will always persists
+docker volume ls (list exsiting volumes)
+docker volume inspect mydata (inspect a volume) - view where docker stores files on the host
+
+BIND MOUNTS
+enable containers to access or sync with specific host directories. useful when devleoping locally and editing source code
+e.g 
+docker run -d --name my-apache -p 8081:80 -v /Users/alex/webapp:/usr/local/apache2/htdocs
+
+-v attaches container path /Users/alex/webapp:/usr/local/apache2/htdocs
+The container’s web root is linked to the host directory
+Changes on the host appear instantly inside the container and vice versa
+Docker manages production data volumes safely
+-----------------------------------------------------------------------------------------------
+#V7 TROUBLESHOOTING
+docker logs <container-id|name> ( to see application output and errors.)
+Review logs to identify failures, misconfigurations, or unexpected behaviour.
+
+docker rm <container_id_or_name> ( to keep the environment uncluttered.)
+Remember, docker rm only works on stopped containers, not on running ones.
+
+docker rmi <image_id_or_name> ( to free up disk space)
+Regularly clean up images after testing or large builds.
+
+
+docker system prune (to remove stopped containers, unused networks, dangling images, and build cache.)
+Reclaim space quickly by deleting resources not referenced by running containers.
+-----------------------------------------------------------------------------------------------
+v8 container netowrking basics
+3 corenetwork types in docker (bridge, host , overlay)
+
+Bridge Network
+Default network for containers started with docker run
+Provides a private IP address for each container
+Enables direct container communication and port mapping from host to container
+Ideal for simple local setups
+
+Host Network
+Containers share the host’s network stack
+No network isolation between container and host
+Useful for performance-sensitive workloads, like monitoring agents
+Host networking is supported only on Linux
+
+Overlay Network
+Designed for swarm and Kubernetes environments
+Connects containers across multiple hosts
+Enables distributed architectures and microservices that need cross-node communication
+Used for multi-host production systems
+
+
+CONTAINER COMMUNICATION
+Port mapping
+Use the -p flag to make container ports accessible from the outside.
+Example: mapping container port 80 to host port 8080:
+
+docker run -d -p 8080:80 nginx
+Then access the app at:
+http://localhost:8080
+run docker network to list default netowrk ls to list all network
+
+
+INSPECTING A DOCKER NETOWRK
+
+Use:
+docker network inspect bridge
+
+This lets you:
+See connected containers and their IP addresses
+Review subnet ranges and gateway information
+
+
+CREATE ISOLATED DOCKER NETWORK
+Create a separate network with:
+docker network create my-net
+Start a new container on that network with:
+docker run -d --network my-net nginx
+This helps isolate development, testing, and production environments.
+
+CONNECTING OR DISCONNECTING CONTAINERS
+Detach or attach containers to networks on the fly with:
+docker network disconnect mynet <container-name>
+docker network connect mynet <container-name>
+
+-----------------------------------------------------------------------------------------------
+v9 docker compose: intro and setup
+DOCKER COMPOSE
+Describes the entire application stack in one YAML file.
+Lists services, images, networks, volumes, and environment settings in docker-compose.yml.
+Starts up or shuts down the whole app with a single command, handling dependencies automatically.
+
+KEY BENEFITS OF DOCKER COMPOSE
+Simplicity: Centralise all container configuration, avoiding scripts and manual commands.
+Consistency: Ensure identical setups across teams, staging, and production.
+Isolation: Automate secure networking so services connect safely.
+Environment management: Pass development, test, and production settings without code changes.
+Re-usable environments: Enable ready local setups for development and testing.'
+
+SAMPLE DOCKE COMPOSE YAML FILE
+
+version: '3.9'
+
+services:
+  web:
+    image: nginx
+    ports:
+      - "8080:80"
+
+  db:
+    image: postgres
+    environment:
+      POSTGRES_PASSWORD: example
+
+
+WINDOWS AND MAC
+DOCKER DESKTOP compose is built in, no separate installation
+view using docker compose version
+
+HANDSON CHECKLIST
+Confirm Docker Compose is installed.
+Install it via your OS package manager if required.
+Locate or create your first docker-compose.yml file.
+Run:
+docker compose up
+to start the stack.
+Run:
+docker compose down
+to stop and remove the stack.
+-----------------------------------------------------------------------------------------------
+v10 defining multi-container app with docker compose
+
+Docker Compose YAML
+Lists containers and their connections in a YAML file to define services and shared resources.
+
+version: '3.9'
+
+services:
+  web:
+    image: nginx
+    ports:
+      - "8080:80"
+
+  db:
+    image: postgres
+    environment:
+      POSTGRES_PASSWORD: example
+
+
+
+Docker Compose Services
+Define container configuration with image, build context, environment, ports, volumes, and restart policies.
+
+services:
+  api:
+    build: ./api
+    ports:
+      - "5000:5000"
+    environment:
+      - FLASK_ENV=development
+
+
+Networking in Docker Compose
+Docker Compose creates a dedicated network by default.
+Services communicate using service names.
+Custom networks enable separation of public and internal services.
+
+
+Networking in Docker Compose
+
+services:
+  web:
+    image: nginx
+    networks:
+      - frontend
+
+  api:
+    build: ./api
+    networks:
+      - frontend
+      - backend
+
+  db:
+    image: postgres
+    networks:
+      - backend
+
+networks:
+  frontend:
+  backend:
+
+Here, web can communicate with api through the frontend network, while api can communicate with db through the backend network. The web service cannot directly communicate with db because they do not share a network.
+
+
+
+Volumes
+
+Persists data like database files even after containers are deleted, with Docker managing durable named storage.
+
+services:
+  db:
+    image: postgres
+    volumes:
+      - db_data:/var/lib/postgresql/data
+
+volumes:
+  db_data:
+
+
+
+Full Compose Example
+
+version: '3.9'
+
+services:
+  web:
+    build: ./webapp
+    ports:
+      - "8080:80"
+    networks:
+      - frontend
+
+  db:
+    image: postgres
+    environment:
+      POSTGRES_PASSWORD: safe_password
+    volumes:
+      - db_data:/var/lib/postgresql/data
+    networks:
+      - backend
+
+networks:
+  frontend:
+  backend:
+
+volumes:
+  db_data:
+
+
+-----------------------------------------------------------------------------------------------
+v11 HANDS ON ORCHESTRATION WITH DOCKER COMPOSE
+
+Docker Compose YAML file
+docker compose up reads the YAML file, creates networks and volumes, and starts all services.
+-d runs containers in detached mode, keeping the terminal free.
+docker compose down stops and removes containers and networks.
+docker compose ps shows running containers and service status.
+
+Scaling Services
+docker compose up --scale web=3 -d
+Launches three identical web containers with the same image/configuration.
+Assigns each container its own name and network identity.
+Supports load balancing and high availability.
+Recreates containers automatically when the scale changes.
+Keep databases and other stateful services as a single instance unless clustered.
+
+Environment Variables
+services:
+  db:
+    image: postgres
+    environment:
+      POSTGRES_PASSWORD: supersecret
+
+  api:
+    build: ./api
+    environment:
+      - API_KEY=foobar
+Use a .env file to store configuration values and secrets.
+Keep the .env file out of source control.
+Place the .env file alongside the Compose file for automatic loading.
+
+
+Environment Dependencies
+services:
+  web:
+    build: ./webapp
+    depends_on:
+      - db
+Define service startup order, such as starting the database before the app.
+Use health checks or scripts to ensure services are fully ready before startup.
+
+
+Monitoring Logs and Managing Services
+View logs from all services at once:
+docker compose logs
+Target logs for one service:
+docker compose logs web
+Follow/stream logs live as the app runs:
+docker compose logs -f
+
+Container Management
+Compose offers commands like:
+docker compose stop <service>
+Stops a specific service.
+docker compose restart <service>
+Restarts a service.
+docker compose rm <service>
+Removes a stopped service.
+
+
+-----------------------------------------------------------------------------------------------
+v12 best practices and advanced tips
+
+Best Practices for Image Tagging and Versioning
+Avoid relying on the default latest tag for Docker images.
+Use proper tagging and versioning for smoother deployments, rollbacks, and team coordination.
+
+Best Practices for Image Tagging and Versioning
+Tag images with meaningful names:
+docker build -t myapp:1.0.0
+Use semantic versioning, for example: 1.0.0, 1.0.1, 2.0.0.
+Push images with explicit tags:
+docker push myapp:1.0.0
+or
+docker push myapp:latest
+Avoid relying only on latest; use explicit versions for deployments.
+
+
+Resource Limits
+Prevents containers from exhausting host CPU or memory, helping ensure predictable resource usage.
+docker run --memory 512m myapp:1.0.0
+Restricts the myapp:1.0.0 container to 512 MB of RAM.
+docker run --cpus=1 myapp:1.0.0
+Limits the myapp:1.0.0 container to 1 CPU core.
+
+Best Practices for Resource Management
+Set production resource limits to prevent runaway containers from affecting system stability.
+Profile applications using generous limits in development, then tighten them gradually.
+Apply resource constraints at scale using Docker Compose or Kubernetes YAML configurations.
+Monitor resource usage over time with Docker Stats or external monitoring tools.
+
+Compose Resource Limits: Example
+
+services:
+  web:
+    image: myweb:2.0.0
+    deploy:
+      resources:
+        limits:
+          cpus: '0.50'
+          memory: 256M
+
+This limits the web service to:
+
+0.5 CPU
+256 MB memory
+
+
+Advanced Tips
+Use multi-stage builds to keep images lean and fast.
+Maintain a .dockerignore file to exclude unnecessary files.
+Scan images regularly for vulnerabilities with Docker or third-party tools.
+Automate builds and deployments with CI/CD pipelines, using explicit tags and resource limits.
+
+
+---------------------------------------------------------------------------
+v13 future with ai
+
+---------------------------------------------------------------------------
+self study assignment
+Objective
+
+To explore Docker-based AI application workflows using guided hands-on exercises for sentiment analysis, text classification and Docker Compose.
+
+Instructions
+
+Please go through the following self-practice exercises to strengthen your understanding of containerised AI application workflows and Docker Compose concepts:
+
+Sentiment Analysis with Docker
+https://docs.docker.com/guides/sentiment-analysis/Links to an external site.
+Text Classification with Docker
+https://docs.docker.com/guides/text-classification/Links to an external site.
+Understanding Docker Compose
+https://docs.docker.com/guides/docker-compose/Links to an external site.
+Recommended Activity
+
+Follow the setup and execution steps provided in each guide.
+Observe how Docker containers and Docker Compose are used to manage AI application workflows.
+Explore the commands, configuration files, and container orchestration concepts used in the examples.
+Estimated time: 60 minutes
+
+Note: There will not be any submission for this activity.
+---------------------------------------------------------------------------
+
