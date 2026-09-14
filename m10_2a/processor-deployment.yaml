@@ -1,0 +1,47 @@
+apiVersion: apps/v1          # Kubernetes API version for Deployment objects
+
+kind: Deployment             # Type of Kubernetes resource being created
+
+metadata:                    # Information about this Deployment
+  name: processor-cluster    # Name of the Deployment
+
+spec:                        # Desired configuration of the Deployment
+
+  replicas: 4                # Run 4 identical Pods
+
+  strategy:                  # Defines how Pods are updated
+    type: RollingUpdate      # Update Pods gradually instead of all at once
+
+    rollingUpdate:           # Settings for the rolling update
+      maxUnavailable: 1      # At most 1 Pod can be unavailable during update
+      maxSurge: 2            # Kubernetes may temporarily create up to 2 extra Pods
+
+  selector:                  # Tells Deployment which Pods belong to it
+    matchLabels:             # Match Pods using labels
+      component: background-job   # Pods must have this label
+
+  template:                  # Template used to create each Pod
+
+    metadata:                # Metadata for the Pods
+      labels:                # Labels attached to every created Pod
+        component: background-job # Must match the selector above
+
+    spec:                    # Configuration of each Pod
+
+      containers:            # List of containers inside the Pod
+
+        - name: job-container    # Name of the container
+
+          image: busybox:1.28    # Docker image used to create the container
+
+          command:               # Command the container runs when it starts
+
+            - sh                  # Run the shell program
+
+            - -c                  # Tell sh to execute the following command string
+
+            - "while true; do echo processing; sleep 10; done"
+              # Infinite loop:
+              # 1. print "processing"
+              # 2. wait 10 seconds
+              # 3. repeat forever
